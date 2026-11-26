@@ -3,7 +3,7 @@ local P = Polestar
 local pack = "blackmaw-hold"
 local guideID = pack .. "/horde"
 if not P.RegisterPack({addon=addon, id=pack, title="艾萨拉 · 黑喉要塞与坏帽子",
-    author="Codex", version="0.1.0", format=11, license="MIT", source="See README.md"}) then return end
+    author="Codex", version="0.1.1", format=11, license="MIT", source="See README.md"}) then return end
 
 local A, F = 1447, 1448
 local kurll = {3621,"库尔",A,21.8,52.1}
@@ -245,6 +245,90 @@ P.RegisterGuide({id=guideID,pack=pack,title="艾萨拉 · 黑喉要塞与坏帽�
     category="Miscellaneous",faction="Horde",minLevel=47,maxLevel=60,zone=A,zoneName="艾萨拉",
     keywords={"黑喉","坏帽子","光复黑喉","Blackmaw","治疗帽"},version=1,
     why="从瓦罗莫克开始，完成光复黑喉并交回尾王头颅；途中可取坏帽子及首趟副本奖励。",steps=steps})
-P.OnLogin(refresh)
+-- Local reminders are independent of the current route step or navigation arrow.
+local function atKurllCamp()
+    if C.IsOnTaxi() then return false end
+    local _,sub=C.GetZoneText()
+    local camp=C.GetAreaName(1237)
+    if sub and camp then return sub==camp end
+    local map,x,y=C.GetPlayerMapPosition()
+    return map==A and x and y and math.abs(x-21.9)<=1.4 and math.abs(y-51.1)<=2
+end
+
+local function kurllAction()
+    if C.IsQuestCompleted(91611) then return end
+    if active(91611) then
+        if ready(91611) then return 91611,"turnin","把巨型鲨鱼排交给库尔，奖励选「坏帽子」。" end
+        return 91611,"collect","已接《致命捕捞》。可留待下次经过北部外海组队打巨型鲨鱼，再把鲨鱼排带回库尔。"
+    end
+    if C.IsQuestCompleted(91610) or C.IsQuestCompleted(91609) then
+        local level=C.GetPlayerInfo().level
+        if level<50 then return 91611,"accept","渔汛已交，50 级再找库尔接《致命捕捞》。","level" end
+        return 91611,"accept","渔汛已交，现在找库尔接《致命捕捞》。"
+    end
+    for _,q in ipairs({91610,91609,91488}) do
+        if active(q) then
+            if ready(q) then
+                return q,"turnin",q==91488 and "毛皮已齐，找库尔交皮，再问他当前的渔汛任务。" or "鱼已齐，回库尔处交鱼，查看《致命捕捞》。"
+            end
+            if q==91488 then
+                return q,"collect",("苔蹄毛皮 %d/5。营地东南的苔蹄鹿掉落，凑齐后找库尔。"):format(math.min(C.GetItemCount(238463),5))
+            elseif q==91610 then
+                return q,"collect",("生冬鱿鱼 %d/10。可以买鱼或沿岸钓，凑齐后找库尔。"):format(math.min(C.GetItemCount(13755),10))
+            end
+            local obj=(C.GetQuestObjectives(q) or {})[1]
+            local count=obj and obj.numFulfilled and obj.numRequired and (" %d/%d"):format(obj.numFulfilled,obj.numRequired) or ""
+            return q,"complete","夏季渔汛"..count.."，按任务日志备鱼，齐了再找库尔。"
+        end
+    end
+    if C.IsQuestCompleted(91488) and not (P.Engine.IsQuestSkipped(91610) or P.Engine.IsQuestSkipped(91609)) then
+        return 91488,"turnin","毛皮已交，找库尔接他当前提供的渔汛任务。看不到时先检查是否学过初级钓鱼。","offer"
+    end
+end
+
+local function dismissed(q,verb)
+    if P.Engine.IsQuestSkipped(q) then return true end
+    local skips=P.CharState().skipped
+    local marks=skips and skips[guideID]
+    if not marks then return false end
+    -- Honor an explicit dismissal of this action, including duplicate return rows.
+    for s,step in ipairs(steps) do
+        for i,g in ipairs(step.goals) do
+            if g.quest==q and g.t==verb and (marks[s] or marks[s..":"..i]) then return true end
+        end
+    end
+    return false
+end
+
+local announced
+local function campReminder()
+    local current=P.Engine and P.Engine.GetGuide()
+    if not current or current.id~=guideID or not atKurllCamp() then announced=nil return end
+    local q,verb,message,variant=kurllAction()
+    if not q or dismissed(q,verb) then announced=nil return end
+    local key=q..":"..(variant or verb)
+    if announced~=key then
+        announced=key
+        P.Notice("坏帽子 · 瓦罗莫克（21.8，52.1）："..message)
+    end
+end
+
+local pending=false
+local function scheduleReminder()
+    if pending then return end
+    pending=true
+    P.After(0.15,function() pending=false campReminder() end)
+end
+
+local function update()
+    refresh()
+    scheduleReminder()
+end
+P.OnLogin(update)
+P.On("GUIDE_CHANGED",scheduleReminder)
+P.On("PLAYER_UNSKIPPED_QUEST",scheduleReminder)
+for _,event in ipairs({"ZONE_CHANGED","ZONE_CHANGED_INDOORS","PLAYER_CONTROL_GAINED"}) do
+    P.RegisterEvent(event,scheduleReminder)
+end
 for _,event in ipairs({"PLAYER_ENTERING_WORLD","ZONE_CHANGED_NEW_AREA","QUEST_LOG_UPDATE","QUEST_ACCEPTED",
-    "QUEST_REMOVED","QUEST_TURNED_IN","BAG_UPDATE_DELAYED","PLAYER_LEVEL_UP"}) do P.RegisterEvent(event,refresh) end
+    "QUEST_REMOVED","QUEST_TURNED_IN","BAG_UPDATE_DELAYED","PLAYER_LEVEL_UP"}) do P.RegisterEvent(event,update) end
