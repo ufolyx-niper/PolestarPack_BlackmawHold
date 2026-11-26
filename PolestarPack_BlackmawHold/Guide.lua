@@ -3,7 +3,7 @@ local P = Polestar
 local pack = "blackmaw-hold"
 local guideID = pack .. "/horde"
 if not P.RegisterPack({addon=addon, id=pack, title="艾萨拉 · 黑喉要塞与坏帽子",
-    author="Codex", version="0.1.3", format=11, license="MIT", source="See README.md"}) then return end
+    author="Codex", version="0.1.4", format=11, license="MIT", source="See README.md"}) then return end
 
 local A, F = 1447, 1448
 local kurll = {3621,"库尔",A,21.8,52.1}
@@ -103,11 +103,18 @@ local function passedScouts()
     end
     return false
 end
+local scoutGoals={}
 local function scout(g)
-    return live(g,function() return not passedScouts() end)
+    scoutGoals[#scoutGoals+1]=g
+    return live(g,function() return active(g.quest) or not passedScouts() end)
 end
 local function refresh()
     local changed = false
+    local downstream=passedScouts()
+    for _,g in ipairs(scoutGoals) do
+        local elective=downstream and active(g.quest) or nil
+        if g.optional~=elective then g.optional=elective changed=true end
+    end
     for _,w in ipairs(watched) do
         local mask = hidden
         if w.show() then mask=nil end
@@ -172,33 +179,46 @@ row("埃达拉斯废墟 · 接主线与首趟副本任务",
 row("雷加斯营地 · 分别清掉三队萨特",
     kill(86746,6200,"雷加斯萨特",5,1,52,18.6),
     kill(86746,6201,"雷加斯潜行者",5,2,52,20.1),
-    kill(86746,6202,"雷加斯唤魔者",5,3,50.7,18.5))
-row("埃卡尔 · 回报后往乌索兰",give(86746,ekkal),take(86752,ekkal,nil,86746))
+    kill(86746,6202,"雷加斯唤魔者",5,3,50.7,18.5),
+    info("三个营地分别计数，沿路只补任务日志里仍欠的种类。"))
+row("埃卡尔 · 回报后往乌索兰",give(86746,ekkal),take(86752,ekkal,nil,86746),
+    info("向埃卡尔取得报到任务后往北走。"))
 row("木喉要塞声望 · 为会见守门者做好准备",
     live({t="rep",faction=576,factionName="木喉要塞",standing=4,map=F,x=62.8,y=7.7,
         note="若乌索兰熊怪不理你，去费伍德北部死木村杀死木熊怪。北洞口纳菲恩可收每组 5 根羽毛。稍后接到酋长任务再专门打酋长。"},
-        function() return not (seen(86791) or seen(86777) or seen(86792) or seen(86796) or passedScouts()) end))
+        function() return not (seen(86791) or seen(86777) or seen(86792) or seen(86796) or passedScouts()) end),
+    info("木喉声望已中立即可继续前往乌索兰。"))
 row("乌索兰 · 找拉格罗尔与诺克",give(86752,gate),take(86791,gate,nil,86752),
     sideTake(92066,nok,"双熊图腾在副本内，木喉中立时顺手问诺克。"))
 row("雷加斯要塞外 · 找到失踪的科尔萨",give(86791,korsa),
-    scout(take(86777,korsa,nil,86791)),scout(take(86792,korsa,nil,86791)))
+    scout(take(86777,korsa,nil,86791)),scout(take(86792,korsa,nil,86791)),
+    info("在科尔萨处接下护符和削减兵力，再进东北要塞。"))
 row("雷加斯要塞 · 护符与守军",
     scout(item(86777,235334,"菲达雷德的护符",1,1,{6652,"菲达雷德",A,61.5,24.6})),
-    scout(kill(86792,236874,"Legashi Hellraiser",6,1,65.7,21.1)),
-    scout(kill(86792,236867,"Legashi Soulstealer",4,2,65.5,16.4)),
-    scout(kill(86792,236876,"Legashi Blackguard",2,3,65.6,19.6)))
+    scout(kill(86792,236874,GetLocale()=="zhCN" and "雷加斯地狱使者" or "Legashi Hellraiser",6,1,65.7,21.1)),
+    scout(kill(86792,236867,GetLocale()=="zhCN" and "雷加斯窃魂者" or "Legashi Soulstealer",4,2,65.5,16.4)),
+    scout(kill(86792,236876,GetLocale()=="zhCN" and "雷加斯黑卫士" or "Legashi Blackguard",2,3,65.6,19.6)),
+    info("若囚犯正在移动，先跟紧护送；脱险后按日志补杀。地狱使者在要塞约 65.7，21.1。"))
 row("雷加斯要塞 · 囚笼护送",
     scout(take(86796,graal,"先清笼边守军。每个人亲自接好，再护送出要塞。若失败，放弃失败的任务，等囚犯回笼后重接。")),
-    scout(goal("complete",86796,graal,"紧跟囚犯，途中保护他打过两次伏击。")))
+    scout(goal("complete",86796,graal,"紧跟囚犯，途中保护他打过两次伏击。")),
+    info("护送结束后回科尔萨交任务，日志显示失败时回笼边重接。"))
 detour("field-report","北海岸 · 已接捕捞的队员打鲨鱼",
     sideWork(item(91611,238507,"巨型鲨鱼排",1,1,{12125,"巨型鲨鱼",A,64.7,6.9},
         "从要塞往北下海，沿深浅海交界找巡游的精英鲨鱼。坐标是巡游区，建议组队。")))
+local report=take(86797,korsa,"先交护符、削减兵力和护送。接到复命后往西去乌索兰。")
+report.preAll={86777,86792,86796}
 row("回科尔萨处 · 汇合后复命",scout(give(86777,korsa)),scout(give(86792,korsa)),scout(give(86796,korsa)),
-    take(86797,korsa,"先交已做完的三项。如果科尔萨已给复命可直接接，按你的日志往下走。")).label="field-report"
-row("乌索兰 · 去费伍德求援",give(86797,gate),take(86798,gate,nil,86797))
-row("费伍德森林北口 · 独眼高恩",give(86798,gorn),take(87346,gorn,"接好再去死木村。",86798))
-row("死木村 · 取酋长武器",item(87346,236631,"血喉粉碎者",1,1,{9462,"血喉酋长",F,62.8,7.7}))
-row("独眼高恩 · 带战旗返回艾萨拉",give(87346,gorn),take(86814,gorn,nil,87346))
+    report,
+    info("检查护符、击杀和护送是否都已交付，再向科尔萨接复命。")).label="field-report"
+row("乌索兰 · 找护门者拉格罗尔复命",give(86797,gate,"离开科尔萨，向西到乌索兰（42.3，20.1）找拉格罗尔交任务。"),take(86798,gate,nil,86797),
+    info("在乌索兰交复命后，接《木喉的增援》再去费伍德北口。"))
+row("费伍德森林北口 · 独眼高恩",give(86798,gorn),take(87346,gorn,"接好再去死木村。",86798),
+    info("独眼高恩在费伍德最北端木喉隧道附近。"))
+row("死木村 · 取酋长武器",item(87346,236631,"血喉粉碎者",1,1,{9462,"血喉酋长",F,62.8,7.7}),
+    info("击杀酋长后拾取武器，返回北口。"))
+row("独眼高恩 · 带战旗返回艾萨拉",give(87346,gorn),take(86814,gorn,nil,87346),
+    info("拿到战旗，返回艾萨拉东北的雷加斯召唤法阵。"))
 row("雷加斯要塞 · 插旗发起反攻",
     kill(86814,235892,"Prince Halanox",1,1,66.8,19),
     info("站在东北要塞的召唤法阵上使用背包里的木喉战旗，再击败召出的王子。队员各自确认任务变成可交。"))
@@ -213,7 +233,8 @@ detour("portal","雷霆崖与天望高地 · 可选的进本准备",
 row("艾萨拉 · 进入黑喉要塞",
     live({t="enter",area=16554,location="黑喉要塞",map=A,x=34.9,y=23.8,
         note="由北部熊怪石门进洞，沿隧道到传送门。建议 55–60 级组五人队，剩余可选任务可留待下次。"},
-        function() return working(92065) and C.GetInstanceMapID()~=2974 end)).label="portal"
+        function() return working(92065) and C.GetInstanceMapID()~=2974 end),
+    info("从艾萨拉北部熊怪石门穿过隧道进本。")).label="portal"
 local function dungeonSide(g)
     optional(g)
     return live(g,function() return C.GetInstanceMapID()==2974 and working(g.quest) end)
@@ -236,8 +257,10 @@ necklace.item,necklace.itemName=249698,"羽饰护符项链"
 along("背包 · 羽饰护符项链",live(necklace,function() return C.GetItemCount(249698)>0 and not seen(92070) end))
 row("黑喉要塞 · 瓦罗克斯·暗蹄",
     item(92065,249692,"瓦罗克斯·暗蹄的头颅",1,1,{247234,"瓦罗克斯·暗蹄"},
-        "已接提尔圣物匣（99187）的圣骑士记得摸血鬃。确认双熊图腾齐全后，从双首领房间下行去尾王；每人摸尸取头颅。若捡到邪能污染的肉，找到食肉鞭笞者时可做《喂食时间！》换种荚。"))
-row("乌索兰 · 交尾王头颅与顺路任务",give(92065,gate),sideGive(92066,nok),sideGive(92070,unele)).label="boss-return"
+        "已接提尔圣物匣（99187）的圣骑士记得摸血鬃。确认双熊图腾齐全后，从双首领房间下行去尾王；每人摸尸取头颅。若捡到邪能污染的肉，找到食肉鞭笞者时可做《喂食时间！》换种荚。"),
+    info("击败瓦罗克斯后每人拾取头颅，回乌索兰交任务。"))
+row("乌索兰 · 交尾王头颅与顺路任务",give(92065,gate),sideGive(92066,nok),sideGive(92070,unele),
+    info("把头颅交给拉格罗尔，持有双熊图腾的队员顺路找诺克。")).label="boss-return"
 row("埃达拉斯废墟 · 归还袋子和狩猎战利品",sideGive(97327,ekkal),sideGive(92069,ogtinc))
 row("瓦罗莫克 · 返程领取坏帽子",sideGive(91611,kurll,"领取布甲头部「坏帽子」。"))
 row("雷霆崖与莫高雷 · 交根帽与仪祭图腾",sideGive(92343,nara),sideGive(97198,muln))
@@ -248,8 +271,16 @@ local stages={{86746},{86752},{86791},{86777,86792,86796},{86797},{86798},{87346
 local rank={}
 for i,stage in ipairs(stages) do for _,q in ipairs(stage) do rank[q]=i end end
 local function needed(g)
-    for i=rank[g.quest]+1,#stages do
-        for _,q in ipairs(stages[i]) do if seen(q) then return false end end
+    local stage=rank[g.quest]
+    if not (stage==4 and active(g.quest)) then
+        for i=stage+1,#stages do
+            for _,q in ipairs(stages[i]) do if seen(q) then return false end end
+        end
+    end
+    if g.quest==86797 then
+        if g.t=="turnin" then return active(86797) end
+        return not seen(86797) and C.IsQuestCompleted(86777)
+            and C.IsQuestCompleted(86792) and C.IsQuestCompleted(86796)
     end
     if g.t=="collect" or g.t=="kill" or g.t=="complete" then return working(g.quest) end
     if g.t=="turnin" then return ready(g.quest) end
@@ -271,6 +302,32 @@ table.insert(steps[1].goals,1,live({t="goto",location="瓦罗莫克",map=A,x=21.
         for q in pairs(rank) do if seen(q) then return false end end
         return not (seen(91488) or seen(92346) or seen(91611))
     end))
+-- The native shape includes the list of goal verbs and IDs. Appending a
+-- note changes its hash even though every saved step/goal index still fits.
+-- Recognize only the exact released layout and retain the original positions.
+P.OnInit(function()
+    local st=P.CharState()
+    local oldShape="32-453615649"
+    local version=st.shapeVersions and st.shapeVersions[guideID]
+    if version~="0.1.2" and version~="0.1.3" then return end
+    if not st.shapes or st.shapes[guideID]~=oldShape then return end
+    if st.ownShapes and st.ownShapes[guideID] and st.ownShapes[guideID]~=oldShape then return end
+    local keys=st.stepKeys and st.stepKeys[guideID]
+    local expected={545278727,255003827,3664376301,1851520238,382492679,1248182368,
+        1866880060,823137168,1054024200,474013677,807041949,2738627358,2808224246,
+        255005767,2888681197,2629137024,3623233239,254032305,2467652044,779304978,
+        1598302883,3664378241,2909865066,4154290729,3319083816,480430595,
+        3330376977,255035339,429385690,2312474555,3664378241,86302012}
+    if type(keys)~="table" or #keys~=#expected then return end
+    for i,k in ipairs(expected) do if keys[i]~=k then return end end
+    -- Same DJB2 update that Core/Engine.lua applies to each appended ",note:".
+    for _,i in ipairs({7,8,9,11,12,13,15,16,17,18,19,24,28,29}) do
+        for byte=1,6 do keys[i]=(keys[i]*33+string.byte(",note:",byte)) % 4294967296 end
+    end
+    st.shapes[guideID]="32-1823708841"
+    if st.ownShapes then st.ownShapes[guideID]=st.shapes[guideID] end
+end)
+
 P.RegisterGuide({id=guideID,pack=pack,title="艾萨拉 · 黑喉要塞与坏帽子（部落）",
     category="Miscellaneous",faction="Horde",minLevel=47,maxLevel=60,zone=A,zoneName="艾萨拉",
     keywords={"黑喉","坏帽子","光复黑喉","Blackmaw","治疗帽"},version=1,
