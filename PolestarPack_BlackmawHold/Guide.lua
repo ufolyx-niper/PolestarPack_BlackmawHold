@@ -3,7 +3,7 @@ local P = Polestar
 local pack = "blackmaw-hold"
 local guideID = pack .. "/horde"
 if not P.RegisterPack({addon=addon, id=pack, title="艾萨拉 · 黑喉要塞与坏帽子",
-    author="Codex", version="0.1.2", format=11, license="MIT", source="See README.md"}) then return end
+    author="Codex", version="0.1.3", format=11, license="MIT", source="See README.md"}) then return end
 
 local A, F = 1447, 1448
 local kurll = {3621,"库尔",A,21.8,52.1}
@@ -119,9 +119,32 @@ local function refresh()
     end
 end
 
+-- Local reminders are independent of the current route step or navigation arrow.
+local function atKurllCamp()
+    if C.IsOnTaxi() then return false end
+    local _,sub=C.GetZoneText()
+    local camp=C.GetAreaName(1237)
+    if sub and camp then return sub==camp end
+    local map,x,y=C.GetPlayerMapPosition()
+    return map==A and x and y and math.abs(x-21.9)<=1.4 and math.abs(y-51.1)<=2
+end
+
+-- nil means this window gives no evidence about the shark quest.
+local offerSource, sharkOffered
+local function currentOffer()
+    if offerSource and C.GetNpcID("npc")==kurll[1] then return sharkOffered end
+end
+local function checkSharkPickup()
+    if seen(91611) then return false end
+    local offered=currentOffer()
+    if offered~=nil then return offered end
+    return atKurllCamp() and C.GetPlayerInfo().level>=50
+        and (C.IsQuestCompleted(91610) or C.IsQuestCompleted(91609))
+end
+
 row("瓦罗莫克出发 · 可选治疗帽与根帽",
     sideTake(92346,jediga,"想采根帽就先接，稍后带信去雷霆崖。"),
-    sideTake(91488,kurll,"想拿坏帽子就接。若看不到渔汛，先学初级钓鱼。冬季可在拍卖行提前买齐 10 条「新鲜的冬鱿鱼」。"),
+    sideTake(91488,kurll,"想拿坏帽子就接毛皮任务，再做当季渔汛。交完冬鱿鱼后，再与库尔对话接《致命捕捞》。若看不到渔汛，先学初级钓鱼。冬季可在拍卖行提前买齐 10 条「新鲜的冬鱿鱼」。"),
     info("已有雷霆崖航点可趁第一次回营交皮时飞雷霆崖，交信、接根帽，顺访天望高地，再返回艾萨拉。也可留到打完反攻再走。"))
 detour("field-start","瓦罗莫克周围 · 库尔的毛皮",
     sideWork(item(91488,238463,"苔蹄毛皮",5,1,{8759,"苔蹄快步者",A,21.5,54.4},"营地东南找苔蹄鹿，共 5 张。")))
@@ -133,11 +156,15 @@ if GetLocale()=="zhCN" then winterSquid.text="收集新鲜的冬鱿鱼（拍卖�
 detour("field-start","库尔的渔汛 · 按任务日志备鱼",
     sideWork(winterSquid),
     sideWork(goal("complete",91609,nil,"夏季仅在实际接到时出现，按日志收集夏日鲈鱼。")))
-detour("field-start","库尔 · 交鱼后带上捕鲨任务",
+local pickup=detour(true,"库尔 · 可接时带上《致命捕捞》",
     sideGive(91610,kurll,"达到 50 级后再次对话，接《致命捕捞》。"),
     sideGive(91609,kurll,"交鱼后查看库尔有无《致命捕捞》。"),
-    live(sideTake(91611,kurll,"东北海岸有精英巨型鲨鱼，可与队友同去。"),function()
-        return not seen(91611) and (C.IsQuestCompleted(91610) or C.IsQuestCompleted(91609)) end))
+    live(sideTake(91611,kurll,"想拿坏帽子就接。到北部外海组队击杀精英巨型鲨鱼，取鲨鱼排回库尔处领奖。"),checkSharkPickup))
+for _,g in ipairs(pickup.goals) do
+    if g.t=="turnin" then
+        live(g,function() return not seen(86746) or atKurllCamp() end)
+    end
+end
 row("埃达拉斯废墟 · 接主线与首趟副本任务",
     take(86746,ekkal,"从瓦罗莫克出发：坏帽子找库尔（21.8，52.1），采根帽找杰迪加（22.4，51.5）。向东北经过奥汀克时可接巨熊爪与獠牙。"),
     sideTake(92069,ogtinc,"进本击杀枯颌和不屈者，分别取爪、牙。"),
@@ -248,26 +275,19 @@ P.RegisterGuide({id=guideID,pack=pack,title="艾萨拉 · 黑喉要塞与坏帽�
     category="Miscellaneous",faction="Horde",minLevel=47,maxLevel=60,zone=A,zoneName="艾萨拉",
     keywords={"黑喉","坏帽子","光复黑喉","Blackmaw","治疗帽"},version=1,
     why="从瓦罗莫克开始，完成光复黑喉并交回尾王头颅；途中可取坏帽子及首趟副本奖励。",steps=steps})
--- Local reminders are independent of the current route step or navigation arrow.
-local function atKurllCamp()
-    if C.IsOnTaxi() then return false end
-    local _,sub=C.GetZoneText()
-    local camp=C.GetAreaName(1237)
-    if sub and camp then return sub==camp end
-    local map,x,y=C.GetPlayerMapPosition()
-    return map==A and x and y and math.abs(x-21.9)<=1.4 and math.abs(y-51.1)<=2
-end
-
 local function kurllAction()
     if C.IsQuestCompleted(91611) then return end
     if active(91611) then
         if ready(91611) then return 91611,"turnin","把巨型鲨鱼排交给库尔，奖励选「坏帽子」。" end
         return 91611,"collect","已接《致命捕捞》。可留待下次经过北部外海组队打巨型鲨鱼，再把鲨鱼排带回库尔。"
     end
+    local offered=currentOffer()
+    if offered then return 91611,"accept","库尔正在提供《致命捕捞》，想拿坏帽子就点「接受」。" end
     if C.IsQuestCompleted(91610) or C.IsQuestCompleted(91609) then
+        if offered==false then return end
         local level=C.GetPlayerInfo().level
         if level<50 then return 91611,"accept","渔汛已交，50 级再找库尔接《致命捕捞》。","level" end
-        return 91611,"accept","渔汛已交，现在找库尔接《致命捕捞》。"
+        return 91611,"accept","渔汛已交，下一步就在这里：再次与库尔对话，接受《致命捕捞》，完成后选「坏帽子」。"
     end
     for _,q in ipairs({91610,91609,91488}) do
         if active(q) then
@@ -306,10 +326,11 @@ end
 local announced
 local function campReminder()
     local current=P.Engine and P.Engine.GetGuide()
-    if not current or current.id~=guideID or not atKurllCamp() then announced=nil return end
+    if not current or current.id~=guideID or not (currentOffer() or atKurllCamp()) then announced=nil return end
     local q,verb,message,variant=kurllAction()
     if not q or dismissed(q,verb) then announced=nil return end
     local key=q..":"..(variant or verb)
+
     if announced~=key then
         announced=key
         P.Notice("坏帽子 · 瓦罗莫克（21.8，52.1）："..message)
@@ -327,11 +348,40 @@ local function update()
     refresh()
     scheduleReminder()
 end
+local function readOffer(source)
+    offerSource,sharkOffered=nil,nil
+    if C.GetNpcID("npc")==kurll[1] then
+        local ids=C.GetOfferedQuests(source)
+        if ids then
+            offerSource=source
+            if source~="detail" then sharkOffered=false end
+            for _,q in ipairs(ids) do if q==91611 then sharkOffered=true break end end
+        end
+    end
+    update()
+end
+local function closeOffer(source)
+    if offerSource and (not source or offerSource==source) then
+        offerSource,sharkOffered=nil,nil
+        update()
+    end
+end
+-- The list from before the fish hand-in no longer describes Kurll's offers.
+P.RegisterEvent("QUEST_TURNED_IN",function(_,q)
+    if q==91610 or q==91609 then offerSource,sharkOffered=nil,nil end
+    update()
+end)
+P.RegisterEvent("GOSSIP_SHOW",function() readOffer("gossip") end)
+P.RegisterEvent("QUEST_GREETING",function() readOffer("greeting") end)
+P.RegisterEvent("QUEST_DETAIL",function() readOffer("detail") end)
+P.RegisterEvent("GOSSIP_CLOSED",function() closeOffer("gossip") end)
+P.RegisterEvent("QUEST_FINISHED",function() closeOffer() end)
+P.RegisterEvent("PLAYER_LEAVING_WORLD",function() closeOffer() end)
 P.OnLogin(update)
 P.On("GUIDE_CHANGED",scheduleReminder)
 P.On("PLAYER_UNSKIPPED_QUEST",scheduleReminder)
 for _,event in ipairs({"ZONE_CHANGED","ZONE_CHANGED_INDOORS","PLAYER_CONTROL_GAINED"}) do
-    P.RegisterEvent(event,scheduleReminder)
+    P.RegisterEvent(event,update)
 end
 for _,event in ipairs({"PLAYER_ENTERING_WORLD","ZONE_CHANGED_NEW_AREA","QUEST_LOG_UPDATE","QUEST_ACCEPTED",
-    "QUEST_REMOVED","QUEST_TURNED_IN","BAG_UPDATE_DELAYED","PLAYER_LEVEL_UP"}) do P.RegisterEvent(event,update) end
+    "QUEST_REMOVED","BAG_UPDATE_DELAYED","PLAYER_LEVEL_UP"}) do P.RegisterEvent(event,update) end
