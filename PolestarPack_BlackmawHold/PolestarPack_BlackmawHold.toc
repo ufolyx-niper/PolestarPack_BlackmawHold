@@ -1,0 +1,13 @@
+## Interface: 16001
+## Title: Polestar: Blackmaw Hold (Horde)
+## Title-zhCN: Polestar：艾萨拉 · 黑喉要塞与坏帽子
+## Notes-zhCN: 部落首次进本任务路线，含可选治疗帽
+## Author: Codex
+## Version: 0.1.0
+## Dependencies: Polestar
+## X-Polestar-Pack: blackmaw-hold
+## X-Polestar-Format: 11
+## X-Polestar-Needs: 0.4.3
+## X-License: MIT
+
+Guide.lua
