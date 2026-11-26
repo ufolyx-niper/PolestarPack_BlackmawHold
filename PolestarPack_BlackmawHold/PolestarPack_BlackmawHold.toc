@@ -3,7 +3,7 @@
 ## Title-zhCN: Polestar：艾萨拉 · 黑喉要塞与坏帽子
 ## Notes-zhCN: 部落首次进本任务路线，含可选治疗帽
 ## Author: Codex
-## Version: 0.1.1
+## Version: 0.1.2
 ## Dependencies: Polestar
 ## X-Polestar-Pack: blackmaw-hold
 ## X-Polestar-Format: 11

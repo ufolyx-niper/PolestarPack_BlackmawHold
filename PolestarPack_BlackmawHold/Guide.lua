@@ -3,7 +3,7 @@ local P = Polestar
 local pack = "blackmaw-hold"
 local guideID = pack .. "/horde"
 if not P.RegisterPack({addon=addon, id=pack, title="艾萨拉 · 黑喉要塞与坏帽子",
-    author="Codex", version="0.1.1", format=11, license="MIT", source="See README.md"}) then return end
+    author="Codex", version="0.1.2", format=11, license="MIT", source="See README.md"}) then return end
 
 local A, F = 1447, 1448
 local kurll = {3621,"库尔",A,21.8,52.1}
@@ -121,14 +121,17 @@ end
 
 row("瓦罗莫克出发 · 可选治疗帽与根帽",
     sideTake(92346,jediga,"想采根帽就先接，稍后带信去雷霆崖。"),
-    sideTake(91488,kurll,"想拿坏帽子就接。若看不到渔汛，先学初级钓鱼。11 月可提前买 10 条生冬鱿鱼。"),
+    sideTake(91488,kurll,"想拿坏帽子就接。若看不到渔汛，先学初级钓鱼。冬季可在拍卖行提前买齐 10 条「新鲜的冬鱿鱼」。"),
     info("已有雷霆崖航点可趁第一次回营交皮时飞雷霆崖，交信、接根帽，顺访天望高地，再返回艾萨拉。也可留到打完反攻再走。"))
 detour("field-start","瓦罗莫克周围 · 库尔的毛皮",
     sideWork(item(91488,238463,"苔蹄毛皮",5,1,{8759,"苔蹄快步者",A,21.5,54.4},"营地东南找苔蹄鹿，共 5 张。")))
 detour("field-start","回库尔处 · 接他今天提供的渔汛",sideGive(91488,kurll,
     "交皮后同库尔对话，自己接实际出现的冬季或夏季渔汛。做冬线可买鱼。蜂蜜另有奖励。"))
+local winterSquid=item(91610,13755,"新鲜的冬鱿鱼",10,1,nil,
+    "在拍卖行搜索「新鲜的冬鱿鱼」，只买缺的数量，凑齐 10 条交给库尔。也可以在艾萨拉海岸钓。")
+if GetLocale()=="zhCN" then winterSquid.text="收集新鲜的冬鱿鱼（拍卖行可买）" end
 detour("field-start","库尔的渔汛 · 按任务日志备鱼",
-    sideWork(item(91610,13755,"生冬鱿鱼",10,1,nil,"可提前买齐或在艾萨拉海岸钓齐。")),
+    sideWork(winterSquid),
     sideWork(goal("complete",91609,nil,"夏季仅在实际接到时出现，按日志收集夏日鲈鱼。")))
 detour("field-start","库尔 · 交鱼后带上捕鲨任务",
     sideGive(91610,kurll,"达到 50 级后再次对话，接《致命捕捞》。"),
@@ -274,7 +277,7 @@ local function kurllAction()
             if q==91488 then
                 return q,"collect",("苔蹄毛皮 %d/5。营地东南的苔蹄鹿掉落，凑齐后找库尔。"):format(math.min(C.GetItemCount(238463),5))
             elseif q==91610 then
-                return q,"collect",("生冬鱿鱼 %d/10。可以买鱼或沿岸钓，凑齐后找库尔。"):format(math.min(C.GetItemCount(13755),10))
+                return q,"collect",("新鲜的冬鱿鱼 %d/10。拍卖行可买，也可沿岸钓，凑齐后找库尔。"):format(math.min(C.GetItemCount(13755),10))
             end
             local obj=(C.GetQuestObjectives(q) or {})[1]
             local count=obj and obj.numFulfilled and obj.numRequired and (" %d/%d"):format(obj.numFulfilled,obj.numRequired) or ""
