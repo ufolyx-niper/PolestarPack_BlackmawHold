@@ -3,7 +3,7 @@ local P = Polestar
 local pack = "blackmaw-hold"
 local guideID = pack .. "/horde"
 if not P.RegisterPack({addon=addon, id=pack, title="艾萨拉 · 黑喉要塞与坏帽子",
-    author="Codex", version="0.1.5", format=11, license="MIT", source="See README.md"}) then return end
+    author="Codex", version="0.1.6", format=11, license="MIT", source="See README.md"}) then return end
 
 local A, F = 1447, 1448
 local kurll = {3621,"库尔",A,21.8,52.1}
@@ -138,6 +138,10 @@ local function atKurllCamp()
 end
 
 -- nil means this window gives no evidence about the shark quest.
+local fishJustHanded=false
+local function fishHanded()
+    return fishJustHanded or C.IsQuestCompleted(91610) or C.IsQuestCompleted(91609)
+end
 local offerSource, sharkOffered
 local function currentOffer()
     if offerSource and C.GetNpcID("npc")==kurll[1] then return sharkOffered end
@@ -147,7 +151,7 @@ local function checkSharkPickup()
     local offered=currentOffer()
     if offered~=nil then return offered end
     return atKurllCamp() and C.GetPlayerInfo().level>=50
-        and (C.IsQuestCompleted(91610) or C.IsQuestCompleted(91609))
+        and fishHanded()
 end
 
 row("瓦罗莫克出发 · 可选治疗帽与根帽",
@@ -426,13 +430,50 @@ for _,s in ipairs(steps) do
         end
     end
 end
+local function dismissed(q,verb)
+    if P.Engine.IsQuestSkipped(q) then return true end
+    local skips=P.CharState().skipped
+    local marks=skips and skips[guideID]
+    if not marks then return false end
+    -- Honor an explicit dismissal of this action, including duplicate return rows.
+    for s,step in ipairs(steps) do
+        for i,g in ipairs(step.goals) do
+            if g.quest==q and g.t==verb and (marks[s] or marks[s..":"..i]) then return true end
+        end
+    end
+    return false
+end
+
+-- Along rows are skipped by the live cursor. The UI reminder near the
+-- start is optional; native Automation also needs a future accept at Kurll
+-- (aheadWants checks the NPC; aheadOk excludes optional goals).
+local lastVisitIndex=#steps+1
+local function sharkBranchChosen()
+    local current=P.Engine and P.Engine.GetGuide()
+    if not current or current.id~=guideID then return false end
+    if not fishHanded() or seen(91611) or C.GetPlayerInfo().level<50 then return false end
+    local skips=P.CharState().skipped
+    local marks=skips and skips[guideID]
+    return not (marks and (marks[lastVisitIndex] or marks[lastVisitIndex..":1"])) and not dismissed(91611,"accept")
+end
+-- After the last main hand-in there would otherwise be no live step from
+-- which the engine can consider a pickup ahead. Leaving camp releases it.
+row("瓦罗莫克 · 与库尔交谈",
+    live({t="task",text="与库尔对话接《致命捕捞》",map=A,x=21.8,y=52.1},
+        function() return sharkBranchChosen() and atKurllCamp() end),
+    info("渔汛已交。想拿坏帽子就与库尔对话；离开营地可以暂缓。"))
+local autoPickup=goal("accept",91611,kurll)
+autoPickup.minLevel=50
+-- The displayed quest keeps its nominal level (56). This post-hand-in
+-- action uses its acceptance minimum (50), including for levels 50-53.
+row("库尔 · 承接渔汛后续",live(autoPickup,sharkBranchChosen)).along=true
 -- Show the opening waypoint until arrival, a manual skip, or relevant quest progress.
 -- Veterans already holding a main quest can resume where they are.
 table.insert(steps[1].goals,1,live({t="goto",location="瓦罗莫克",map=A,x=21.8,y=52.1,
     note="先决定是否接库尔的坏帽子线和杰迪加的根帽线。已经在埃卡尔旁、只跑主线时可跳过本步。"},
     function()
         for q in pairs(rank) do if seen(q) then return false end end
-        return not (seen(91488) or seen(92346) or seen(91611))
+        return not (seen(91488) or seen(92346) or seen(91611) or fishHanded())
     end))
 -- The native shape includes the list of goal verbs and IDs. Appending a
 -- note changes its hash even though every saved step/goal index still fits.
@@ -479,7 +520,28 @@ P.OnInit(function()
     if type(keys)~="table" or #keys~=#expected then return end
     for i,k in ipairs(expected) do if keys[i]~=k then return end end
     st.ownShapes=st.ownShapes or {}
-    st.ownShapes[guideID]="33-54375496"
+    st.ownShapes[guideID]="35-2419505413"
+end)
+
+-- Both handoff rows are appended, so every 0.1.5 index still matches.
+-- Let Core remap the old shape without permanently passing the new tail
+-- for characters who already finished the dungeon before updating.
+P.OnInit(function()
+    local st=P.CharState()
+    local old="33-54375496"
+    if not st.shapeVersions or st.shapeVersions[guideID]~="0.1.5" then return end
+    if not st.shapes or st.shapes[guideID]~=old then return end
+    if st.ownShapes and st.ownShapes[guideID] and st.ownShapes[guideID]~=old then return end
+    local keys=st.stepKeys and st.stepKeys[guideID]
+    local expected={545278727,255003827,3664376301,1851520238,382492679,2934146728,
+        1248182368,3775130904,184343404,3818841060,474013677,988436793,3397770618,
+        4293891666,255005767,2537349257,3947474524,2991327219,962025037,1709893288,
+        779304978,1598302883,3664378241,2909865066,2871462085,3319083816,480430595,
+        3330376977,3633532903,2003386166,2312474555,3664378241,86302012}
+    if type(keys)~="table" or #keys~=#expected then return end
+    for i,k in ipairs(expected) do if keys[i]~=k then return end end
+    st.ownShapes=st.ownShapes or {}
+    st.ownShapes[guideID]="35-2419505413"
 end)
 
 P.RegisterGuide({id=guideID,pack=pack,title="艾萨拉 · 黑喉要塞与坏帽子（部落）",
@@ -494,7 +556,7 @@ local function kurllAction()
     end
     local offered=currentOffer()
     if offered then return 91611,"accept","库尔正在提供《致命捕捞》，想拿坏帽子就点「接受」。" end
-    if C.IsQuestCompleted(91610) or C.IsQuestCompleted(91609) then
+    if fishHanded() then
         if offered==false then return end
         local level=C.GetPlayerInfo().level
         if level<50 then return 91611,"accept","渔汛已交，50 级再找库尔接《致命捕捞》。","level" end
@@ -520,20 +582,6 @@ local function kurllAction()
     end
 end
 
-local function dismissed(q,verb)
-    if P.Engine.IsQuestSkipped(q) then return true end
-    local skips=P.CharState().skipped
-    local marks=skips and skips[guideID]
-    if not marks then return false end
-    -- Honor an explicit dismissal of this action, including duplicate return rows.
-    for s,step in ipairs(steps) do
-        for i,g in ipairs(step.goals) do
-            if g.quest==q and g.t==verb and (marks[s] or marks[s..":"..i]) then return true end
-        end
-    end
-    return false
-end
-
 local announced
 local function campReminder()
     local current=P.Engine and P.Engine.GetGuide()
@@ -556,7 +604,13 @@ local function fireActive()
 end
 local function fireTick()
     if not fireActive() then return end
-    if refreshFire() then P.Engine.RequestUpdate() end
+    local visit=steps[lastVisitIndex].goals[1]
+    local visitVisible=not not (sharkBranchChosen() and atKurllCamp())
+    if visitVisible~=(visit.only==nil) then
+        refresh()
+    elseif refreshFire() then
+        P.Engine.RequestUpdate()
+    end
     fireNotice()
 end
 local function watchFire()
@@ -608,7 +662,7 @@ local function closeOffer(source)
 end
 -- The list from before the fish hand-in no longer describes Kurll's offers.
 P.RegisterEvent("QUEST_TURNED_IN",function(_,q)
-    if q==91610 or q==91609 then offerSource,sharkOffered=nil,nil end
+    if q==91610 or q==91609 then fishJustHanded=true offerSource,sharkOffered=nil,nil end
     update()
 end)
 P.RegisterEvent("GOSSIP_SHOW",function() readOffer("gossip") end)
@@ -618,7 +672,7 @@ P.RegisterEvent("GOSSIP_CLOSED",function() closeOffer("gossip") end)
 P.RegisterEvent("QUEST_FINISHED",function() closeOffer() end)
 P.RegisterEvent("PLAYER_LEAVING_WORLD",function() closeOffer() end)
 P.OnLogin(function() update() watchFire() end)
-P.On("GUIDE_CHANGED",function() scheduleReminder() watchFire() end)
+P.On("GUIDE_CHANGED",function() update() watchFire() end)
 P.On("PLAYER_UNSKIPPED_QUEST",update)
 P.On("PLAYER_SKIPPED_QUEST",update)
 for _,event in ipairs({"ZONE_CHANGED","ZONE_CHANGED_INDOORS","PLAYER_CONTROL_GAINED"}) do
